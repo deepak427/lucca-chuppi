@@ -35,7 +35,7 @@ export class MapSelection extends Scene {
       .setOrigin(0.5);
 
     mapCard.on('pointerdown', () => {
-      this.scene.start('Game');
+      this.scene.start('Game', { mapKey: 'map1' });
     });
 
     mapCard.on('pointerover', () => {
