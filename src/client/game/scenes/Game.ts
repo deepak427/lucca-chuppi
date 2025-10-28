@@ -43,9 +43,40 @@ export class Game extends Scene {
       .setInteractive({ useHandCursor: true })
       .setVisible(false);
 
-    this.shareButton.on('pointerdown', () => {
-      // TODO: Implement Reddit sharing
-      console.log('Sharing to Reddit...');
+    this.shareButton.on('pointerdown', async () => {
+      this.shareButton.setText('Sharing...').disableInteractive();
+      this.hidingSpot.setVisible(false);
+
+      this.game.renderer.snapshot(async (image: HTMLImageElement) => {
+        this.hidingSpot.setVisible(true);
+
+        try {
+          const response = await fetch('/api/share', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageData: image.src,
+              hidingSpot: {
+                x: this.hidingSpot.x,
+                y: this.hidingSpot.y,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to share post.');
+          }
+
+          const { postUrl } = await response.json();
+          this.shareButton.setText('Shared!').setInteractive();
+          window.open(postUrl, '_blank');
+        } catch (error) {
+          console.error('Error sharing post:', error);
+          this.shareButton.setText('Error!').setInteractive();
+        }
+      });
     });
   }
 }

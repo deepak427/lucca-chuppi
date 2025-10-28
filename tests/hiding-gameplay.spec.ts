@@ -20,4 +20,12 @@ test('hiding gameplay', async ({ page }) => {
 
   // Take a screenshot to verify the hiding spot and share button
   await expect(page).toHaveScreenshot();
+
+  // Click the share button
+  await page.locator('canvas').click({
+    position: { x: 512, y: 718 }, // Coordinates for the share button
+  });
+
+  // Take a final screenshot to verify the text has changed
+  await expect(page).toHaveScreenshot();
 });

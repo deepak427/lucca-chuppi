@@ -1,121 +1,71 @@
 import express from 'express';
-import { InitResponse, IncrementResponse, DecrementResponse } from '../shared/types/api';
-import { redis, createServer, context } from '@devvit/web/server';
-import { createPost } from './core/post';
+import { createServer, context, reddit } from '@devvit/web/server';
+import { media } from '@devvit/media';
+import { saveHidingSpot, getHidingSpot } from './core/storage';
+import { v4 as uuidv4 } from 'uuid';
 
 const app = express();
 
 // Middleware for JSON body parsing
 app.use(express.json());
-// Middleware for URL-encoded body parsing
-app.use(express.urlencoded({ extended: true }));
-// Middleware for plain text body parsing
-app.use(express.text());
 
 const router = express.Router();
 
-router.get<{ postId: string }, InitResponse | { status: string; message: string }>(
-  '/api/init',
-  async (_req, res): Promise<void> => {
-    const { postId } = context;
-
-    if (!postId) {
-      console.error('API Init Error: postId not found in devvit context');
-      res.status(400).json({
-        status: 'error',
-        message: 'postId is required but missing from context',
-      });
-      return;
-    }
-
-    try {
-      const count = await redis.get('count');
-      res.json({
-        type: 'init',
-        postId: postId,
-        count: count ? parseInt(count) : 0,
-      });
-    } catch (error) {
-      console.error(`API Init Error for post ${postId}:`, error);
-      let errorMessage = 'Unknown error during initialization';
-      if (error instanceof Error) {
-        errorMessage = `Initialization failed: ${error.message}`;
-      }
-      res.status(400).json({ status: 'error', message: errorMessage });
-    }
+router.post('/api/hiding-spot', (req, res) => {
+  const { gameId, x, y } = req.body;
+  if (!gameId || x === undefined || y === undefined) {
+    return res.status(400).json({ error: 'gameId, x, and y are required.' });
   }
-);
+  saveHidingSpot(gameId, { x, y });
+  res.status(200).json({ success: true });
+});
 
-router.post<{ postId: string }, IncrementResponse | { status: string; message: string }, unknown>(
-  '/api/increment',
-  async (_req, res): Promise<void> => {
-    const { postId } = context;
-    if (!postId) {
-      res.status(400).json({
-        status: 'error',
-        message: 'postId is required',
-      });
-      return;
-    }
-
-    res.json({
-      count: await redis.incrBy('count', 1),
-      postId,
-      type: 'increment',
-    });
+router.get('/api/hiding-spot', (req, res) => {
+  const { gameId } = req.query;
+  if (typeof gameId !== 'string') {
+    return res.status(400).json({ error: 'gameId is required.' });
   }
-);
-
-router.post<{ postId: string }, DecrementResponse | { status: string; message: string }, unknown>(
-  '/api/decrement',
-  async (_req, res): Promise<void> => {
-    const { postId } = context;
-    if (!postId) {
-      res.status(400).json({
-        status: 'error',
-        message: 'postId is required',
-      });
-      return;
-    }
-
-    res.json({
-      count: await redis.incrBy('count', -1),
-      postId,
-      type: 'decrement',
-    });
-  }
-);
-
-router.post('/internal/on-app-install', async (_req, res): Promise<void> => {
-  try {
-    const post = await createPost();
-
-    res.json({
-      status: 'success',
-      message: `Post created in subreddit ${context.subredditName} with id ${post.id}`,
-    });
-  } catch (error) {
-    console.error(`Error creating post: ${error}`);
-    res.status(400).json({
-      status: 'error',
-      message: 'Failed to create post',
-    });
+  const spot = getHidingSpot(gameId);
+  if (spot) {
+    res.json(spot);
+  } else {
+    res.status(404).json({ error: 'Hiding spot not found.' });
   }
 });
 
-router.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
+router.post('/api/share', async (req, res) => {
+  const { imageData, hidingSpot } = req.body;
+  if (!imageData || !hidingSpot) {
+    return res.status(400).json({ error: 'imageData and hidingSpot are required.' });
+  }
+
   try {
-    const post = await createPost();
+    const { subredditName } = context;
+    if (!subredditName) {
+      throw new Error('subredditName is required');
+    }
+
+    const gameId = uuidv4();
+    saveHidingSpot(gameId, hidingSpot);
+
+    const imageUrl = await media.upload({
+      url: imageData,
+      type: 'png',
+    });
+
+    const post = await reddit.submitPost({
+      subredditName,
+      title: 'Where am I?',
+      url: imageUrl,
+    });
 
     res.json({
-      navigateTo: `https://reddit.com/r/${context.subredditName}/comments/${post.id}`,
+      success: true,
+      postUrl: `https://www.reddit.com${post.permalink}`,
     });
   } catch (error) {
-    console.error(`Error creating post: ${error}`);
-    res.status(400).json({
-      status: 'error',
-      message: 'Failed to create post',
-    });
+    console.error('Error sharing post:', error);
+    res.status(500).json({ error: 'Failed to share post.' });
   }
 });
 
@@ -125,6 +75,10 @@ app.use(router);
 // Get port from environment variable with fallback
 const port = process.env.WEBBIT_PORT || 3000;
 
-const server = createServer(app);
-server.on('error', (err) => console.error(`server error; ${err.stack}`));
-server.listen(port, () => console.log(`http://localhost:${port}`));
+if (process.env.NODE_ENV === 'test') {
+  app.listen(port, () => console.log(`http://localhost:${port}`));
+} else {
+  const server = createServer(app);
+  server.on('error', (err) => console.error(`server error; ${err.stack}`));
+  server.listen(port, () => console.log(`http://localhost:${port}`));
+}
