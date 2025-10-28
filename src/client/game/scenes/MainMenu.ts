@@ -4,6 +4,7 @@ export class MainMenu extends Scene {
   background: GameObjects.Image | null = null;
   logo: GameObjects.Image | null = null;
   title: GameObjects.Text | null = null;
+  playButton: GameObjects.Text | null = null;
 
   constructor() {
     super('MainMenu');
@@ -18,6 +19,7 @@ export class MainMenu extends Scene {
     this.background = null;
     this.logo = null;
     this.title = null;
+    this.playButton = null;
   }
 
   create() {
@@ -25,10 +27,6 @@ export class MainMenu extends Scene {
 
     // Re-calculate positions whenever the game canvas is resized (e.g. orientation change).
     this.scale.on('resize', () => this.refreshLayout());
-
-    this.input.once('pointerdown', () => {
-      this.scene.start('Game');
-    });
   }
 
   /**
@@ -71,5 +69,33 @@ export class MainMenu extends Scene {
     }
     this.title!.setPosition(width / 2, height * 0.6);
     this.title!.setScale(scaleFactor);
+
+    if (!this.playButton) {
+      this.playButton = this.add
+        .text(0, 0, 'Play', {
+          fontFamily: 'Arial Black',
+          fontSize: `${baseFontSize}px`,
+          color: '#ffffff',
+          stroke: '#000000',
+          strokeThickness: 8,
+          align: 'center',
+        })
+        .setOrigin(0.5)
+        .setInteractive();
+
+      this.playButton.on('pointerdown', () => {
+        this.scene.start('Game');
+      });
+
+      this.playButton.on('pointerover', () => {
+        this.playButton!.setStyle({ fill: '#ff0' });
+      });
+
+      this.playButton.on('pointerout', () => {
+        this.playButton!.setStyle({ fill: '#fff' });
+      });
+    }
+    this.playButton!.setPosition(width / 2, height * 0.8);
+    this.playButton!.setScale(scaleFactor);
   }
 }
