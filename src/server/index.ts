@@ -75,7 +75,8 @@ app.use(router);
 // Get port from environment variable with fallback
 const port = process.env.WEBBIT_PORT || 3000;
 
-if (process.env.NODE_ENV === 'test') {
+// Use the Devvit server wrapper only in the Devvit (production) environment
+if (process.env.NODE_ENV !== 'production') {
   app.listen(port, () => console.log(`http://localhost:${port}`));
 } else {
   const server = createServer(app);

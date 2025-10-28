@@ -22,8 +22,8 @@
     "launch": "npm run build && npm run deploy && devvit publish",
     "prettier": "prettier-package-json --write ./package.json && prettier --write .",
     "test": "npx playwright test $@",
-    "test:e2e": "concurrently -k -s first \"npm run test:server\" \"npm test --\"",
-    "test:server": "NODE_ENV=test npm run dev:server:run",
+    "test:e2e": "concurrently -k -s first \"npm run dev:client\" \"npm run test:server\"",
+    "test:server": "NODE_ENV=test node dist/server/index.cjs",
     "type-check": "tsc --build"
   },
   "dependencies": {
