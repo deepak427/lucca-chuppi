@@ -84,7 +84,7 @@ export class MainMenu extends Scene {
         .setInteractive();
 
       this.playButton.on('pointerdown', () => {
-        this.scene.start('Game');
+        this.scene.start('MapSelection');
       });
 
       this.playButton.on('pointerover', () => {
